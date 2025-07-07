@@ -3,85 +3,36 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>F1 Reaction Test with Stats</title>
+  <title>F1 Reaction Test with Leaderboard</title>
   <style>
-    body, html {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background: #222;
-      color: #fff;
-      font-family: sans-serif;
-    }
-    #container {
-      display: flex;
-      gap: 40px;
-      padding: 20px;
-      flex-wrap: wrap;
-      justify-content: center;
-    }
-    #left {
-      text-align: center;
-    }
-    #lights {
-      display: grid;
-      grid-template-columns: repeat(5, 60px);
-      grid-template-rows: repeat(3, 60px);
-      gap: 10px;
-      margin-bottom: 20px;
-    }
-    .light {
-      width: 60px;
-      height: 60px;
-      border-radius: 50%;
-      background: #555;
-    }
-    .on {
-      background: red !important;
-    }
-    #message {
-      font-size: 1.2rem;
-      height: 1.5em;
-      margin-bottom: 10px;
-    }
-    #startBtn {
-      padding: 10px 20px;
-      font-size: 1rem;
-      cursor: pointer;
-    }
-    #stats {
-      max-width: 220px;
-    }
-    #stats table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    #stats th, #stats td {
-      border: 1px solid #555;
-      padding: 4px;
-      text-align: center;
-    }
-    #average {
-      margin-top: 10px;
-      font-weight: bold;
-      text-align: center;
-    }
+    body, html { margin:0; padding:0; height:100%; background:#222; color:#fff; font-family:sans-serif; display:flex; justify-content:center; align-items:center; }
+    #container { display:flex; gap:40px; flex-wrap:wrap; justify-content:center; padding:20px; }
+    #left { text-align:center; }
+    #lights { display:grid; grid-template-columns:repeat(5,60px); grid-template-rows:repeat(3,60px); gap:10px; margin-bottom:20px; }
+    .light { width:60px; height:60px; border-radius:50%; background:#555; }
+    .on { background:red!important; }
+    #message { font-size:1.2rem; height:1.5em; margin-bottom:10px; }
+    button { padding:10px 20px; font-size:1rem; cursor:pointer; margin:5px; }
+    #stats, #leaderboard { max-width:250px; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { border:1px solid #555; padding:4px; text-align:center; }
+    #average { margin-top:10px; font-weight:bold; text-align:center; }
+    #leaderboard { display:none; }
+    #lb-form { margin-bottom:10px; }
+    #lb-form input { width:100%; padding:6px; margin-bottom:6px; box-sizing:border-box; }
   </style>
 </head>
 <body>
   <div id="container">
     <div id="left">
       <div id="lights">
-        <!-- 15 lights -->
         <div class="light"></div><div class="light"></div><div class="light"></div><div class="light"></div><div class="light"></div>
         <div class="light"></div><div class="light"></div><div class="light"></div><div class="light"></div><div class="light"></div>
         <div class="light"></div><div class="light"></div><div class="light"></div><div class="light"></div><div class="light"></div>
       </div>
       <div id="message">Press Start</div>
       <button id="startBtn">Start</button>
+      <button id="showLbBtn">Leaderboard</button>
     </div>
     <div id="stats">
       <table>
@@ -96,45 +47,49 @@
       </table>
       <div id="average">Average: -- ms</div>
     </div>
+    <div id="leaderboard">
+      <div id="lb-form">
+        <input type="text" id="username" placeholder="Enter name" />
+        <button id="submitLbBtn">Submit Score</button>
+      </div>
+      <table>
+        <thead><tr><th>Name</th><th>Avg (ms)</th></tr></thead>
+        <tbody id="lb-body"></tbody>
+      </table>
+      <button id="closeLbBtn">Close</button>
+    </div>
   </div>
-
   <script>
     const lights = Array.from(document.querySelectorAll('.light'));
     const cols = 5, rows = 3;
     const message = document.getElementById('message');
-    const btn = document.getElementById('startBtn');
+    const startBtn = document.getElementById('startBtn');
+    const showLbBtn = document.getElementById('showLbBtn');
+    const leaderboardDiv = document.getElementById('leaderboard');
+    const closeLbBtn = document.getElementById('closeLbBtn');
+    const submitLbBtn = document.getElementById('submitLbBtn');
     let startTime = null, timerId;
-    let sequenceTimers = [];
+    let seqTimers = [];
     let times = [];
 
-    function resetTable() {
+    function resetAll() {
+      clearTimeout(timerId);
+      seqTimers.forEach(id => clearTimeout(id)); seqTimers = [];
       times = [];
       for (let i = 1; i <= 5; i++) document.getElementById(`run${i}`).textContent = '--';
       document.getElementById('average').textContent = 'Average: -- ms';
-    }
-
-    function clearSequence() {
-      sequenceTimers.forEach(id => clearTimeout(id));
-      sequenceTimers = [];
-    }
-
-    function fullReset() {
-      clearTimeout(timerId);
-      clearSequence();
-      resetTable();
       lights.forEach(l => l.classList.remove('on'));
       message.textContent = 'Press Start';
-      startTime = null;
-      btn.disabled = false;
-      document.removeEventListener('click', record);
+      startBtn.disabled = false;
+      document.removeEventListener('click', recordClick);
     }
 
-    function record(e) {
-      if (e.target === btn) return;
-      document.removeEventListener('click', record);
+    function recordClick(e) {
+      if (e.target === startBtn) return;
+      document.removeEventListener('click', recordClick);
       if (startTime === null) {
         message.textContent = 'False start! Stats reset.';
-        fullReset();
+        resetAll();
         return;
       }
       const rt = performance.now() - startTime;
@@ -142,42 +97,68 @@
       times.push(rt);
       const idx = times.length;
       document.getElementById(`run${idx}`).textContent = rt.toFixed(0);
-      const avg = times.reduce((sum, t) => sum + t, 0) / times.length;
+      const avg = times.reduce((a, b) => a + b, 0) / times.length;
       document.getElementById('average').textContent = `Average: ${avg.toFixed(0)} ms`;
-      setTimeout(() => {
-        if (times.length < 5) startTime = null, btn.disabled = times.length >= 5;
-      }, 2000);
+      startBtn.disabled = times.length >= 5;
     }
 
-    function start() {
-      btn.disabled = true;
+    function startSequence() {
+      resetAll(); // Clear previous listeners and states
+      startBtn.disabled = true;
       message.textContent = 'Get Ready';
       lights.forEach(l => l.classList.remove('on'));
       startTime = null;
-      clearSequence();
-      document.removeEventListener('click', record);
-      document.addEventListener('click', record);
+      document.addEventListener('click', recordClick);
 
       for (let c = 0; c < cols; c++) {
-        const seqId = setTimeout(() => {
+        const id = setTimeout(() => {
           for (let r = 0; r < rows; r++) lights[r * cols + c].classList.add('on');
           if (c === cols - 1) {
-            const delay = Math.random() * 5000;
             timerId = setTimeout(() => {
               lights.forEach(l => l.classList.remove('on'));
               message.textContent = 'Go!';
               startTime = performance.now();
-              document.removeEventListener('click', record);
-              document.addEventListener('click', record);
-            }, delay);
+              document.addEventListener('click', recordClick);
+            }, Math.random() * 5000);
           }
         }, c * 1000);
-        sequenceTimers.push(seqId);
+        seqTimers.push(id);
       }
     }
 
-    btn.addEventListener('click', start);
-    fullReset();
+    function loadLeaderboard() {
+      let lb = JSON.parse(localStorage.getItem('f1lb') || '[]');
+      lb.sort((a, b) => a.avg - b.avg);
+      lb = lb.slice(0, 30);
+      localStorage.setItem('f1lb', JSON.stringify(lb));
+      const body = document.getElementById('lb-body'); body.innerHTML = '';
+      lb.forEach(entry => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${entry.name}</td><td>${entry.avg.toFixed(0)}</td>`;
+        body.appendChild(tr);
+      });
+    }
+
+    showLbBtn.addEventListener('click', () => { loadLeaderboard(); leaderboardDiv.style.display = 'block'; });
+    closeLbBtn.addEventListener('click', () => leaderboardDiv.style.display = 'none');
+    submitLbBtn.addEventListener('click', () => {
+      const name = document.getElementById('username').value.trim();
+      if (!name || times.length < 5) return;
+      const avg = times.reduce((a, b) => a + b, 0) / times.length;
+      let lb = JSON.parse(localStorage.getItem('f1lb') || '[]');
+      const existing = lb.find(e => e.name === name);
+      if (existing) {
+        if (avg < existing.avg) existing.avg = avg;
+      } else {
+        lb.push({ name, avg });
+      }
+      localStorage.setItem('f1lb', JSON.stringify(lb));
+      document.getElementById('username').value = '';
+      loadLeaderboard();
+    });
+
+    startBtn.addEventListener('click', startSequence);
+    resetAll();
   </script>
 </body>
 </html>
