@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#222" />
+  <link rel="manifest" href="manifest.json" />
+  <title>F1 Start Reaction Test</title>
+  <style>
+    body, html { margin: 0; padding: 0; height: 100%; display: flex; justify-content: center; align-items: center; background: #222; }
+    #container { text-align: center; width: 100%; max-width: 400px; padding: 0 10px; }
+    #lights { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; }
+    .light { flex: 1; aspect-ratio: 1 / 1; border-radius: 50%; background: #555; }
+    .light.on { background: red; }
+    #message { color: #fff; font-size: 1.5rem; margin-bottom: 10px; white-space: pre-line; }
+    #startBtn { padding: 15px 20px; font-size: 1.2rem; cursor: pointer; width: 100%; }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <div id="lights">
+      <div class="light" id="light1"></div>
+      <div class="light" id="light2"></div>
+      <div class="light" id="light3"></div>
+      <div class="light" id="light4"></div>
+      <div class="light" id="light5"></div>
+    </div>
+    <div id="message">Press START to begin</div>
+    <button id="startBtn">START</button>
+  </div>
+
+  <script>
+    // Register service worker for PWA support
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(console.error);
+    }
+
+    const lights = Array.from(document.querySelectorAll('.light'));
+    const message = document.getElementById('message');
+    const startBtn = document.getElementById('startBtn');
+    let startTime, timeoutID;
+
+    function resetLights() {
+      clearTimeout(timeoutID);
+      lights.forEach(light => light.classList.remove('on'));
+      message.textContent = 'Press START to begin';
+      startBtn.disabled = false;
+      document.removeEventListener('click', recordReaction);
+    }
+
+    function startSequence() {
+      startBtn.disabled = true;
+      message.textContent = 'Get ready...';
+      lights.forEach(light => light.classList.remove('on'));
+
+      lights.forEach((light, index) => {
+        setTimeout(() => {
+          light.classList.add('on');
+          if (index === lights.length - 1) {
+            const randomDelay = Math.random() * 5000;
+            timeoutID = setTimeout(() => {
+              lights.forEach(l => l.classList.remove('on'));
+              message.textContent = 'GO!';
+              startTime = performance.now();
+              document.addEventListener('click', recordReaction);
+            }, randomDelay);
+          }
+        }, index * 500);
+      });
+    }
+
+    function recordReaction() {
+      const reactionTime = performance.now() - startTime;
+      message.textContent = `Your reaction time: ${reactionTime.toFixed(0)} ms`;
+      document.removeEventListener('click', recordReaction);
+      setTimeout(resetLights, 2000);
+    }
+
+    startBtn.addEventListener('click', startSequence);
+    resetLights();
+  </script>
+</body>
+</html>
