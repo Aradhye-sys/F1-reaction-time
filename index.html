@@ -26,6 +26,7 @@
   <div id="container">
     <div id="left">
       <div id="lights">
+        <!-- 15 lights -->
         <div class="light"></div><div class="light"></div><div class="light"></div><div class="light"></div><div class="light"></div>
         <div class="light"></div><div class="light"></div><div class="light"></div><div class="light"></div><div class="light"></div>
         <div class="light"></div><div class="light"></div><div class="light"></div><div class="light"></div><div class="light"></div>
@@ -60,7 +61,7 @@
     </div>
   </div>
   <script>
-    const lights = Array.from(document.querySelectorAll('.light'));
+    const lights = document.querySelectorAll('.light');
     const cols = 5, rows = 3;
     const message = document.getElementById('message');
     const startBtn = document.getElementById('startBtn');
@@ -74,9 +75,12 @@
 
     function resetAll() {
       clearTimeout(timerId);
-      seqTimers.forEach(id => clearTimeout(id)); seqTimers = [];
+      seqTimers.forEach(id => clearTimeout(id));
+      seqTimers = [];
       times = [];
-      for (let i = 1; i <= 5; i++) document.getElementById(`run${i}`).textContent = '--';
+      for (let i = 1; i <= 5; i++) {
+        document.getElementById(`run${i}`).textContent = '--';
+      }
       document.getElementById('average').textContent = 'Average: -- ms';
       lights.forEach(l => l.classList.remove('on'));
       message.textContent = 'Press Start';
@@ -103,21 +107,24 @@
     }
 
     function startSequence() {
-      resetAll(); // Clear previous listeners and states
       startBtn.disabled = true;
       message.textContent = 'Get Ready';
       lights.forEach(l => l.classList.remove('on'));
       startTime = null;
+      document.removeEventListener('click', recordClick);
       document.addEventListener('click', recordClick);
 
       for (let c = 0; c < cols; c++) {
         const id = setTimeout(() => {
-          for (let r = 0; r < rows; r++) lights[r * cols + c].classList.add('on');
+          for (let r = 0; r < rows; r++) {
+            lights[r * cols + c].classList.add('on');
+          }
           if (c === cols - 1) {
             timerId = setTimeout(() => {
               lights.forEach(l => l.classList.remove('on'));
               message.textContent = 'Go!';
               startTime = performance.now();
+              document.removeEventListener('click', recordClick);
               document.addEventListener('click', recordClick);
             }, Math.random() * 5000);
           }
@@ -131,7 +138,8 @@
       lb.sort((a, b) => a.avg - b.avg);
       lb = lb.slice(0, 30);
       localStorage.setItem('f1lb', JSON.stringify(lb));
-      const body = document.getElementById('lb-body'); body.innerHTML = '';
+      const body = document.getElementById('lb-body');
+      body.innerHTML = '';
       lb.forEach(entry => {
         const tr = document.createElement('tr');
         tr.innerHTML = `<td>${entry.name}</td><td>${entry.avg.toFixed(0)}</td>`;
@@ -139,8 +147,13 @@
       });
     }
 
-    showLbBtn.addEventListener('click', () => { loadLeaderboard(); leaderboardDiv.style.display = 'block'; });
-    closeLbBtn.addEventListener('click', () => leaderboardDiv.style.display = 'none');
+    showLbBtn.addEventListener('click', () => {
+      loadLeaderboard();
+      leaderboardDiv.style.display = 'block';
+    });
+    closeLbBtn.addEventListener('click', () => {
+      leaderboardDiv.style.display = 'none';
+    });
     submitLbBtn.addEventListener('click', () => {
       const name = document.getElementById('username').value.trim();
       if (!name || times.length < 5) return;
