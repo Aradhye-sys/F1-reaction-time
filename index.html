@@ -92,11 +92,6 @@
           <tr><td>3</td><td id="run3">--</td></tr>
           <tr><td>4</td><td id="run4">--</td></tr>
           <tr><td>5</td><td id="run5">--</td></tr>
-          <tr><td>6</td><td id="run6">--</td></tr>
-          <tr><td>7</td><td id="run7">--</td></tr>
-          <tr><td>8</td><td id="run8">--</td></tr>
-          <tr><td>9</td><td id="run9">--</td></tr>
-          <tr><td>10</td><td id="run10">--</td></tr>
         </tbody>
       </table>
       <div id="average">Average: -- ms</div>
@@ -104,39 +99,53 @@
   </div>
 
   <script>
-    const lights = document.querySelectorAll('.light');
+    const lights = Array.from(document.querySelectorAll('.light'));
     const cols = 5, rows = 3;
     const message = document.getElementById('message');
     const btn = document.getElementById('startBtn');
-    let startTime, timerId;
-    const times = [];
+    let startTime = null, timerId;
+    let sequenceTimers = [];
+    let times = [];
 
-    function updateStats(time) {
-      times.push(time);
-      const idx = times.length;
-      document.getElementById(`run${idx}`).textContent = time.toFixed(0);
-      const avg = times.reduce((sum, t) => sum + t, 0) / times.length;
-      document.getElementById('average').textContent = `Average: ${avg.toFixed(0)} ms`;
+    function resetTable() {
+      times = [];
+      for (let i = 1; i <= 5; i++) document.getElementById(`run${i}`).textContent = '--';
+      document.getElementById('average').textContent = 'Average: -- ms';
     }
 
-    function reset() {
+    function clearSequence() {
+      sequenceTimers.forEach(id => clearTimeout(id));
+      sequenceTimers = [];
+    }
+
+    function fullReset() {
       clearTimeout(timerId);
+      clearSequence();
+      resetTable();
       lights.forEach(l => l.classList.remove('on'));
       message.textContent = 'Press Start';
-      btn.disabled = times.length >= 10;
-      // remove click listener only if set
+      startTime = null;
+      btn.disabled = false;
       document.removeEventListener('click', record);
     }
 
     function record(e) {
-      // ignore clicks on the Start button
       if (e.target === btn) return;
+      document.removeEventListener('click', record);
+      if (startTime === null) {
+        message.textContent = 'False start! Stats reset.';
+        fullReset();
+        return;
+      }
       const rt = performance.now() - startTime;
       message.textContent = `Reaction: ${rt.toFixed(0)} ms`;
-      document.removeEventListener('click', record);
-      updateStats(rt);
+      times.push(rt);
+      const idx = times.length;
+      document.getElementById(`run${idx}`).textContent = rt.toFixed(0);
+      const avg = times.reduce((sum, t) => sum + t, 0) / times.length;
+      document.getElementById('average').textContent = `Average: ${avg.toFixed(0)} ms`;
       setTimeout(() => {
-        if (times.length < 10) reset();
+        if (times.length < 5) startTime = null, btn.disabled = times.length >= 5;
       }, 2000);
     }
 
@@ -144,27 +153,31 @@
       btn.disabled = true;
       message.textContent = 'Get Ready';
       lights.forEach(l => l.classList.remove('on'));
+      startTime = null;
+      clearSequence();
+      document.removeEventListener('click', record);
+      document.addEventListener('click', record);
 
       for (let c = 0; c < cols; c++) {
-        setTimeout(() => {
-          for (let r = 0; r < rows; r++) {
-            lights[r * cols + c].classList.add('on');
-          }
+        const seqId = setTimeout(() => {
+          for (let r = 0; r < rows; r++) lights[r * cols + c].classList.add('on');
           if (c === cols - 1) {
             const delay = Math.random() * 5000;
             timerId = setTimeout(() => {
               lights.forEach(l => l.classList.remove('on'));
               message.textContent = 'Go!';
               startTime = performance.now();
+              document.removeEventListener('click', record);
               document.addEventListener('click', record);
             }, delay);
           }
         }, c * 1000);
+        sequenceTimers.push(seqId);
       }
     }
 
     btn.addEventListener('click', start);
-    reset();
+    fullReset();
   </script>
 </body>
 </html>
