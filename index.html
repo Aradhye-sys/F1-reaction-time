@@ -53,11 +53,13 @@
       message.textContent = 'Get ready...';
       lights.forEach(light => light.classList.remove('on'));
 
+      // Turn lights on one by one every 1 second
       lights.forEach((light, index) => {
         setTimeout(() => {
           light.classList.add('on');
+          // After the last light turns on, schedule the random disappearance
           if (index === lights.length - 1) {
-            const randomDelay = Math.random() * 5000;
+            const randomDelay = Math.random() * 5000; // 0–5 seconds
             timeoutID = setTimeout(() => {
               lights.forEach(l => l.classList.remove('on'));
               message.textContent = 'GO!';
@@ -65,7 +67,7 @@
               document.addEventListener('click', recordReaction);
             }, randomDelay);
           }
-        }, index * 500);
+        }, index * 1000); // changed from 500ms to 1000ms intervals
       });
     }
 
