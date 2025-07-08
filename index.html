@@ -1,15 +1,18 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>F1 Reaction Test with Leaderboard</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>F1 Reaction Test</title>
   <style>
-    body, html { margin:0; padding:0; height:100%; background:#222; color:#fff; font-family:sans-serif; display:flex; justify-content:center; align-items:center; }
+    body, html { margin:0; padding:0; height:100%; background:#222; color:#fff; font-family:sans-serif;
+      display:flex; justify-content:center; align-items:center; }
     #container { display:flex; gap:40px; flex-wrap:wrap; justify-content:center; padding:20px; }
     #left { text-align:center; }
-    #lights { display:grid; grid-template-columns:repeat(5,60px); grid-template-rows:repeat(3,60px); gap:10px; margin-bottom:20px; }
-    .light { width:60px; height:60px; border-radius:50%; background:#555; }
+    #lights { display:grid; grid-template-columns:repeat(5,60px); grid-template-rows:repeat(3,60px);
+      gap:10px; margin-bottom:20px; }
+    .light { width:60px; height:60px; border-radius:50%; background:#555; transition:background .2s; }
     .on { background:red!important; }
     #message { font-size:1.2rem; height:1.5em; margin-bottom:10px; }
     button { padding:10px 20px; font-size:1rem; cursor:pointer; margin:5px; }
@@ -21,9 +24,19 @@
     #lb-form { margin-bottom:10px; }
     #lb-form input { width:100%; padding:6px; margin-bottom:6px; box-sizing:border-box; }
   </style>
+
+  <!-- Supabase JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script>
+    const { createClient } = window.supabase;
+    const SUPABASE_URL = 'https://jmkgxmdmefeisxdzdacv.supabase.co';  // ← your URL
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impta2d4bWRtZWZlaXN4ZHpkYWN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE5MzAxMzAsImV4cCI6MjA2NzUwNjEzMH0.RvP0-Y5p0HP-F0hOovYJ3knAPFqQTjzDZ05_0rAK05s';  // ← your anon key
+    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
+  </script>
 </head>
 <body>
   <div id="container">
+    <!-- Left: lights & controls -->
     <div id="left">
       <div id="lights">
         <!-- 15 lights -->
@@ -35,22 +48,26 @@
       <button id="startBtn">Start</button>
       <button id="showLbBtn">Leaderboard</button>
     </div>
+
+    <!-- Center: stats -->
     <div id="stats">
       <table>
-        <thead><tr><th>Run</th><th>Time (ms)</th></tr></thead>
+        <thead>
+          <tr><th>Run</th><th>Time (ms)</th></tr>
+        </thead>
         <tbody>
           <tr><td>1</td><td id="run1">--</td></tr>
           <tr><td>2</td><td id="run2">--</td></tr>
           <tr><td>3</td><td id="run3">--</td></tr>
-          <tr><td>4</td><td id="run4">--</td></tr>
-          <tr><td>5</td><td id="run5">--</td></tr>
         </tbody>
       </table>
       <div id="average">Average: -- ms</div>
     </div>
+
+    <!-- Right: leaderboard -->
     <div id="leaderboard">
       <div id="lb-form">
-        <input type="text" id="username" placeholder="Enter name" />
+        <input type="text" id="username" placeholder="Enter name"/>
         <button id="submitLbBtn">Submit Score</button>
       </div>
       <table>
@@ -60,118 +77,156 @@
       <button id="closeLbBtn">Close</button>
     </div>
   </div>
+
   <script>
-    const lights = document.querySelectorAll('.light');
-    const cols = 5, rows = 3;
-    const message = document.getElementById('message');
-    const startBtn = document.getElementById('startBtn');
-    const showLbBtn = document.getElementById('showLbBtn');
+    // DOM refs
+    const lights         = document.querySelectorAll('.light');
+    const message        = document.getElementById('message');
+    const startBtn       = document.getElementById('startBtn');
+    const showLbBtn      = document.getElementById('showLbBtn');
     const leaderboardDiv = document.getElementById('leaderboard');
-    const closeLbBtn = document.getElementById('closeLbBtn');
-    const submitLbBtn = document.getElementById('submitLbBtn');
-    let startTime = null, timerId;
-    let seqTimers = [];
-    let times = [];
+    const closeLbBtn     = document.getElementById('closeLbBtn');
+    const submitLbBtn    = document.getElementById('submitLbBtn');
+    const run1Display    = document.getElementById('run1');
+    const run2Display    = document.getElementById('run2');
+    const run3Display    = document.getElementById('run3');
+    const averageDisplay = document.getElementById('average');
+
+    let seqTimers = [], timerId;
+    let startTime = null;
+    let times     = [];
 
     function resetAll() {
+      // clear timers & handlers
+      seqTimers.forEach(t => clearTimeout(t));
       clearTimeout(timerId);
-      seqTimers.forEach(id => clearTimeout(id));
       seqTimers = [];
-      times = [];
-      for (let i = 1; i <= 5; i++) {
-        document.getElementById(`run${i}`).textContent = '--';
-      }
-      document.getElementById('average').textContent = 'Average: -- ms';
-      lights.forEach(l => l.classList.remove('on'));
-      message.textContent = 'Press Start';
-      startBtn.disabled = false;
       document.removeEventListener('click', recordClick);
+
+      // reset lights
+      lights.forEach(l => l.classList.remove('on'));
+
+      // reset stats
+      times = [];
+      run1Display.textContent = run2Display.textContent = run3Display.textContent = '--';
+      averageDisplay.textContent = 'Average: -- ms';
+
+      // reset UI
+      message.textContent = 'Press Start';
+      startBtn.disabled   = false;
     }
 
     function recordClick(e) {
-      if (e.target === startBtn) return;
+      if (e.target === startBtn) return;  // ignore clicking the Start button
+
       document.removeEventListener('click', recordClick);
+
+      // false start?
       if (startTime === null) {
         message.textContent = 'False start! Stats reset.';
         resetAll();
         return;
       }
+
+      // record reaction
       const rt = performance.now() - startTime;
-      message.textContent = `Reaction: ${rt.toFixed(0)} ms`;
       times.push(rt);
-      const idx = times.length;
-      document.getElementById(`run${idx}`).textContent = rt.toFixed(0);
-      const avg = times.reduce((a, b) => a + b, 0) / times.length;
-      document.getElementById('average').textContent = `Average: ${avg.toFixed(0)} ms`;
-      startBtn.disabled = times.length >= 5;
-    }
+      const runNo = times.length;
+      const display = runNo === 1 ? run1Display : runNo === 2 ? run2Display : run3Display;
+      display.textContent = rt.toFixed(0);
 
-    function startSequence() {
-      startBtn.disabled = true;
-      message.textContent = 'Get Ready';
-      lights.forEach(l => l.classList.remove('on'));
-      startTime = null;
-      document.removeEventListener('click', recordClick);
-      document.addEventListener('click', recordClick);
+      // update average so far
+      const avg = Math.round(times.reduce((a,b)=>a+b,0)/times.length);
+      averageDisplay.textContent = `Average: ${avg} ms`;
 
-      for (let c = 0; c < cols; c++) {
-        const id = setTimeout(() => {
-          for (let r = 0; r < rows; r++) {
-            lights[r * cols + c].classList.add('on');
-          }
-          if (c === cols - 1) {
-            timerId = setTimeout(() => {
-              lights.forEach(l => l.classList.remove('on'));
-              message.textContent = 'Go!';
-              startTime = performance.now();
-              document.removeEventListener('click', recordClick);
-              document.addEventListener('click', recordClick);
-            }, Math.random() * 5000);
-          }
-        }, c * 1000);
-        seqTimers.push(id);
+      // if fewer than 3 runs, chain next
+      if (runNo < 3) {
+        timerId = setTimeout(() => startSequence(), 1000);
+      } else {
+        // done
+        message.textContent = 'All done!';
+        startBtn.disabled = false;
       }
     }
 
-    function loadLeaderboard() {
-      let lb = JSON.parse(localStorage.getItem('f1lb') || '[]');
-      lb.sort((a, b) => a.avg - b.avg);
-      lb = lb.slice(0, 30);
-      localStorage.setItem('f1lb', JSON.stringify(lb));
+    function startSequence() {
+      resetAll();
+      startBtn.disabled   = true;
+      message.textContent = 'Get Ready…';
+
+      // prepare for false-start clicks
+      document.addEventListener('click', recordClick);
+
+      // red lights one column per second
+      for (let col = 0; col < 5; col++) {
+        seqTimers.push(setTimeout(() => {
+          // light up 3 bulbs in this column
+          for (let row = 0; row < 3; row++) {
+            lights[row*5 + col].classList.add('on');
+          }
+          // after last red, schedule GO
+          if (col === 4) {
+            timerId = setTimeout(() => {
+              // turn all off
+              lights.forEach(l => l.classList.remove('on'));
+              // allow real click
+              document.removeEventListener('click', recordClick);
+              startTime = performance.now();
+              message.textContent = 'GO!';
+              document.addEventListener('click', recordClick, { once: true });
+            }, 1000 + Math.random()*2000);  // 1–3s delay
+          }
+        }, col*1000));
+      }
+    }
+
+    async function loadLeaderboard() {
+      leaderboardDiv.style.display = 'block';
+      const { data, error } = await supabaseClient
+        .from('f1_leaderboard')
+        .select('name, avg')
+        .order('avg', { ascending: true })
+        .limit(30);
+
+      if (error) {
+        message.textContent = `Could not load leaderboard: ${error.message}`;
+        return;
+      }
       const body = document.getElementById('lb-body');
       body.innerHTML = '';
-      lb.forEach(entry => {
+      data.forEach(r => {
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${entry.name}</td><td>${entry.avg.toFixed(0)}</td>`;
+        tr.innerHTML = `<td>${r.name}</td><td>${r.avg.toFixed(0)}</td>`;
         body.appendChild(tr);
       });
     }
 
-    showLbBtn.addEventListener('click', () => {
-      loadLeaderboard();
-      leaderboardDiv.style.display = 'block';
-    });
-    closeLbBtn.addEventListener('click', () => {
-      leaderboardDiv.style.display = 'none';
-    });
-    submitLbBtn.addEventListener('click', () => {
+    async function submitScore() {
       const name = document.getElementById('username').value.trim();
-      if (!name || times.length < 5) return;
-      const avg = times.reduce((a, b) => a + b, 0) / times.length;
-      let lb = JSON.parse(localStorage.getItem('f1lb') || '[]');
-      const existing = lb.find(e => e.name === name);
-      if (existing) {
-        if (avg < existing.avg) existing.avg = avg;
-      } else {
-        lb.push({ name, avg });
+      if (!name || times.length < 3) return;
+      const avg = times.reduce((a,b)=>a+b,0)/times.length;
+
+      const { error } = await supabaseClient
+        .from('f1_leaderboard')
+        .upsert([{ name, avg }], { onConflict: 'name' });
+
+      if (error) {
+        message.textContent = `Submit failed: ${error.message}`;
+        return;
       }
-      localStorage.setItem('f1lb', JSON.stringify(lb));
       document.getElementById('username').value = '';
       loadLeaderboard();
-    });
+    }
 
+    // wire up
     startBtn.addEventListener('click', startSequence);
+    showLbBtn.addEventListener('click', loadLeaderboard);
+    closeLbBtn.addEventListener('click', () => leaderboardDiv.style.display = 'none');
+    submitLbBtn.addEventListener('click', submitScore);
+
+    // init
     resetAll();
   </script>
 </body>
 </html>
+
