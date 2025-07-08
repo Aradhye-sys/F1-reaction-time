@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>F1 Reaction Test</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>F1 Reaction Test (3-Try) with Supabase Leaderboard</title>
   <style>
     body, html { margin:0; padding:0; height:100%; background:#222; color:#fff; font-family:sans-serif;
       display:flex; justify-content:center; align-items:center; }
@@ -29,14 +28,14 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <script>
     const { createClient } = window.supabase;
-    const SUPABASE_URL = 'https://jmkgxmdmefeisxdzdacv.supabase.co';  // ← your URL
+    const SUPABASE_URL = 'https://jmkgxmdmefeisxdzdacv.supabase.co';  // ← your project URL
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impta2d4bWRtZWZlaXN4ZHpkYWN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE5MzAxMzAsImV4cCI6MjA2NzUwNjEzMH0.RvP0-Y5p0HP-F0hOovYJ3knAPFqQTjzDZ05_0rAK05s';  // ← your anon key
     const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
   </script>
 </head>
 <body>
   <div id="container">
-    <!-- Left: lights & controls -->
+    <!-- Lights & Controls -->
     <div id="left">
       <div id="lights">
         <!-- 15 lights -->
@@ -49,12 +48,10 @@
       <button id="showLbBtn">Leaderboard</button>
     </div>
 
-    <!-- Center: stats -->
+    <!-- Stats -->
     <div id="stats">
       <table>
-        <thead>
-          <tr><th>Run</th><th>Time (ms)</th></tr>
-        </thead>
+        <thead><tr><th>Run</th><th>Time (ms)</th></tr></thead>
         <tbody>
           <tr><td>1</td><td id="run1">--</td></tr>
           <tr><td>2</td><td id="run2">--</td></tr>
@@ -64,10 +61,10 @@
       <div id="average">Average: -- ms</div>
     </div>
 
-    <!-- Right: leaderboard -->
+    <!-- Leaderboard -->
     <div id="leaderboard">
       <div id="lb-form">
-        <input type="text" id="username" placeholder="Enter name"/>
+        <input type="text" id="username" placeholder="Enter name" />
         <button id="submitLbBtn">Submit Score</button>
       </div>
       <table>
@@ -92,6 +89,7 @@
     const run3Display    = document.getElementById('run3');
     const averageDisplay = document.getElementById('average');
 
+    // State
     let seqTimers = [], timerId;
     let startTime = null;
     let times     = [];
@@ -117,8 +115,7 @@
     }
 
     function recordClick(e) {
-      if (e.target === startBtn) return;  // ignore clicking the Start button
-
+      if (e.target === startBtn) return;  // ignore the Start button itself
       document.removeEventListener('click', recordClick);
 
       // false start?
@@ -132,49 +129,47 @@
       const rt = performance.now() - startTime;
       times.push(rt);
       const runNo = times.length;
-      const display = runNo === 1 ? run1Display : runNo === 2 ? run2Display : run3Display;
-      display.textContent = rt.toFixed(0);
+      const disp = runNo === 1 ? run1Display : runNo === 2 ? run2Display : run3Display;
+      disp.textContent = rt.toFixed(0);
 
-      // update average so far
+      // update average
       const avg = Math.round(times.reduce((a,b)=>a+b,0)/times.length);
       averageDisplay.textContent = `Average: ${avg} ms`;
 
-      // if fewer than 3 runs, chain next
+      // continue or finish
       if (runNo < 3) {
-        timerId = setTimeout(() => startSequence(), 1000);
+        timerId = setTimeout(startSequence, 1000);
       } else {
-        // done
         message.textContent = 'All done!';
-        startBtn.disabled = false;
+        startBtn.disabled   = false;
       }
     }
 
     function startSequence() {
-      resetAll();
+      // only clear on very first run
+      if (times.length === 0) resetAll();
+
       startBtn.disabled   = true;
       message.textContent = 'Get Ready…';
 
-      // prepare for false-start clicks
+      // prepare for false-start
       document.addEventListener('click', recordClick);
 
-      // red lights one column per second
+      // light up each of the 5 columns over 1s intervals
       for (let col = 0; col < 5; col++) {
         seqTimers.push(setTimeout(() => {
-          // light up 3 bulbs in this column
           for (let row = 0; row < 3; row++) {
             lights[row*5 + col].classList.add('on');
           }
           // after last red, schedule GO
           if (col === 4) {
             timerId = setTimeout(() => {
-              // turn all off
               lights.forEach(l => l.classList.remove('on'));
-              // allow real click
               document.removeEventListener('click', recordClick);
               startTime = performance.now();
               message.textContent = 'GO!';
               document.addEventListener('click', recordClick, { once: true });
-            }, 1000 + Math.random()*2000);  // 1–3s delay
+            }, 1000 + Math.random()*2000); // 1–3s random delay
           }
         }, col*1000));
       }
@@ -218,15 +213,14 @@
       loadLeaderboard();
     }
 
-    // wire up
+    // Wire up
     startBtn.addEventListener('click', startSequence);
     showLbBtn.addEventListener('click', loadLeaderboard);
     closeLbBtn.addEventListener('click', () => leaderboardDiv.style.display = 'none');
     submitLbBtn.addEventListener('click', submitScore);
 
-    // init
+    // Initialize once
     resetAll();
   </script>
 </body>
 </html>
-
